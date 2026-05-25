@@ -13,11 +13,21 @@ in Tagesordnern anhand des Erstellungsdatums.
 - Optionen:
   - `-h`, `--help`: Zeigt die Hilfe an.
   - `-n`, `--dry-run`: Nur anzeigen, welche Dateien verschoben werden würden.
+  - `--self-check`: Prüft Laufzeitabhängigkeiten und zeigt den Status an, ohne Dateien zu verschieben.
 - Hinweis: Läuft Bash unter Version 4.0 unterhalb, gibt das Script beim Start eine Kompatibilitätswarnung aus und nutzt Fallbacks für Kleinbuchstaben-Konvertierung.
 - Kompatibilität: Das Skript läuft mit `bash` in Version 3+ sowie in `zsh` (auch bei Aufruf aus `zsh`-Shell).
 - Dateien im Zielverzeichnis werden in Unterordner nach `YYYY-MM-DD` verschoben.
 - Das Datum wird bevorzugt aus EXIF/Metadaten (`exiftool`) gelesen und bei Fehlschlag auf das
   Dateisystem-Datum (`mtime`) zurückgegriffen.
+
+## Abhängigkeiten
+
+- Pflicht: `bash`/`zsh`, `find`, `awk`, `tr`, `date`, `mv`, `mkdir`
+- Optional: `exiftool` (verbessert die Datumsbestimmung)
+
+```bash
+./sort-media.sh --self-check
+```
 
 ## Unterstützte Dateitypen
 
@@ -34,6 +44,12 @@ in Tagesordnern anhand des Erstellungsdatums.
 
 ```bash
 ./sort-media.sh --dry-run ./Fotos
+```
+
+Self-Check (`--self-check`):
+
+```bash
+./sort-media.sh --self-check ./Fotos
 ```
 
 Dabei werden die geplanten Zielpfade ausgegeben, ohne Dateien zu verschieben.

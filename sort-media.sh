@@ -4,6 +4,7 @@ set -eu
 # Sort media files by date into folders named YYYY-MM-DD.
 TARGET_DIR="."
 DRY_RUN="${DRY_RUN:-0}"
+SELF_CHECK=0
 TARGET_DIR_SET=0
 
 warn_legacy_bash() {
@@ -31,11 +32,70 @@ Standard ist das aktuelle Verzeichnis.
 Optionen:
   -h, --help      Diese Hilfe anzeigen.
   -n, --dry-run    Nur anzeigen, welche Dateien verschoben würden.
+  --self-check     Prüft Abhängigkeiten und Umgebungsbedingungen ohne Dateien zu verschieben.
 
 Beispiel:
   ./sort-media.sh ./Fotos
   DRY_RUN=1 ./sort-media.sh --dry-run ./Fotos
+  ./sort-media.sh --self-check ./Fotos
 EOF
+}
+
+check_dependency() {
+  local name=$1
+  if command -v "$name" >/dev/null 2>&1; then
+    printf "  ok   %s\n" "$name"
+    return 0
+  fi
+
+  printf "  fehlt %s\n" "$name"
+  return 1
+}
+
+self_check() {
+  local has_errors=0
+  local shell_name="unbekannt"
+
+  if [ -n "${BASH_VERSION-}" ]; then
+    shell_name="bash ${BASH_VERSION}"
+  elif [ -n "${ZSH_VERSION-}" ]; then
+    shell_name="zsh ${ZSH_VERSION}"
+  elif [ -n "${SHELL-}" ]; then
+    shell_name="${SHELL##*/}"
+  fi
+
+  echo "Self-Check: sort-media.sh"
+  echo "Shell        : $shell_name"
+  echo "Zielpfad     : $TARGET_DIR"
+
+  echo "Pflicht-Abhängigkeiten:"
+  check_dependency find || has_errors=1
+  check_dependency awk || has_errors=1
+  check_dependency tr || has_errors=1
+  check_dependency date || has_errors=1
+  check_dependency mv || has_errors=1
+  check_dependency mkdir || has_errors=1
+
+  echo "Optionale Abhängigkeit:"
+  if check_dependency exiftool; then
+    echo "  Hinweis: exiftool gefunden, EXIF-Daten werden bevorzugt verwendet."
+  else
+    echo "  Hinweis: exiftool nicht gefunden, Fallback auf Dateisystem-Datum."
+  fi
+
+  if [ -d "$TARGET_DIR" ] && [ -w "$TARGET_DIR" ]; then
+    echo "Zielverzeichnis erreichbar und beschreibbar."
+  else
+    echo "Fehler: Zielverzeichnis nicht schreibbar: $TARGET_DIR"
+    has_errors=1
+  fi
+
+  if (( has_errors )); then
+    echo "Self-Check: Fehler gefunden."
+    exit 1
+  fi
+
+  echo "Self-Check: OK"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -46,6 +106,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -n|--dry-run)
       DRY_RUN=1
+      shift
+      ;;
+    --self-check)
+      SELF_CHECK=1
       shift
       ;;
     --)
@@ -75,6 +139,11 @@ warn_legacy_bash
 if [[ ! -d "$TARGET_DIR" ]]; then
   echo "Fehler: '$TARGET_DIR' ist kein Verzeichnis." >&2
   exit 1
+fi
+
+if (( SELF_CHECK )); then
+  self_check
+  exit 0
 fi
 
 SUPPORTED_TYPES=(
@@ -155,7 +224,7 @@ mv_with_target() {
     stem=${file##*/}
     ext="$(to_lower "${stem##*.}")"
     stem=${stem%.*}
-    mv -- "$file" "$target/${stem}-$(date +%s%N).$ext"
+    mv -- "$file" "$target/${stem}-$(date +%s).$ext"
   else
     mv -- "$file" "$target/"
   fi
